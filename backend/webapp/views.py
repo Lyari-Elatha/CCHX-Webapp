@@ -4,6 +4,8 @@ from django.shortcuts import render
 from esi.decorators import token_required
 from django.http import HttpResponse
 from pprint import pprint
+from esi.models import *
+from django.shortcuts import redirect
 from esi.clients import EsiClientProvider
 from tqdm import *
 import json
@@ -11,6 +13,10 @@ import json
 esi = EsiClientProvider()
 
 from .models import Item, DogmaAttribute
+
+def react_redirect(request):
+    response = redirect('http://localhost:3000')
+    return response
 
 def list_assets(request):
     type_id = request.GET.get('type_id', None)
@@ -32,16 +38,18 @@ def list_assets(request):
             damage_modifier = attr_map[64]
             rof = attr_map[204]
             dps = ((damage_modifier / rof) - 1) * 100
-            item_res['dps'] = round(dps, 2)
-            item_res['rof'] = round((1 - rof) + 1, 2)
-            item_res['damage'] = round(damage_modifier, 2)
+            item_res['dps'] = round(dps, 3)
+            item_res['rof'] = round((1 - rof) + 1, 3)
+            item_res['damage'] = round(damage_modifier, 3)
+            item_res['cpu'] = round(attr_map[50], 3)
 
         item_response.append(item_res)
 
     return HttpResponse(json.dumps(item_response))
 
-@token_required(scopes="esi-assets.read_assets.v1")
-def fetch_assets(request, token):
+def fetch_assets(request):
+    eve_character = request.user.eve_character
+    token = Token.get_token(eve_character.character_id, 'esi-assets.read_assets.v1')
     abyssal_type_ids = [49722, 49726, 47820, ]
     access_token = token.valid_access_token()
     assets = esi.client.Assets.get_characters_character_id_assets(character_id=token.character_id,
